@@ -1,18 +1,23 @@
-# Use a slim Node.js image (Node 20 is current LTS as of 2025)
-FROM node:20-slim
-
-# Create app directory
+# Build stage
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy source code (including built dist if you pre-build, but we'll build inside)
-COPY . .
-
-# Build the TypeScript (if needed)
+RUN npm ci
+COPY tsconfig.json ./
+COPY src/ ./src/
 RUN npm run build
 
-# Run the bot
+# Production stage
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+# Run as non-root for security
+USER node
+
+# Cloud Run sets PORT automatically
+ENV PORT=8080
+
 CMD ["node", "dist/index.js"]
