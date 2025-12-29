@@ -16,4 +16,26 @@ yarn-error.log*
 
 # OS
 .DS_Store
-Thumbs.dbfirebase-service-account.json
+Thumbs.db
+
+# Google Cloud / Firebase
+google-credentials.json
+firebase-debug.log
+firebase-errors.log
+firebase-service-account.json
+serviceAccountKey.json
+serviceAccount.json
+.firebase/
+.firebaserc
+adc.json
+
+#gcloud SDK credentials
+.gcloud/
+application_default_credentials.json
+
+# Firebase config
+google-services.json
+firebase.json
+
+# IDEs
+.vscode/
