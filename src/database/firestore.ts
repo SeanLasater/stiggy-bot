@@ -1,6 +1,5 @@
 // src/database/firestore.ts
 import { firestore } from './firebase';
-import type { DocumentData } from 'firebase-admin/firestore';
 
 // Collections we'll use
 const tunesCollection = firestore.collection('tunes');

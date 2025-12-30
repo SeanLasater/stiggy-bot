@@ -1,21 +1,18 @@
-// src/database/firebase.ts
-import admin from 'firebase-admin';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import * as admin from 'firebase-admin';
 
-// Load the service account key (safe because it's gitignored)
-const serviceAccountPath = join(process.cwd(), 'firebase-service-account.json');
-const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
-
-// Initialize only once
+// Initialize Firebase Admin SDK
+// On Cloud Run/GCP: Automatically uses default service account (no JSON needed)
+// Locally: For testing, run `gcloud auth application-default login` or set GOOGLE_APPLICATION_CREDENTIALS env var
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-  console.log('Firebase Admin initialized successfully');
-} else {
-  console.log('Firebase Admin already initialized');
+  admin.initializeApp();  // Parameter-less init detects GCP environment automatically
 }
 
-export default admin;
+export const auth = admin.auth();
 export const firestore = admin.firestore();
+
+// Optional: Enhance Firestore settings for better performance
+firestore.settings({
+  ignoreUndefinedProperties: true,  // Prevents errors with undefined fields
+});
+
+export default admin;
