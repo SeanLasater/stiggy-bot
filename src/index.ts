@@ -16,6 +16,17 @@ import http, { Server } from 'http';
 const TOKEN = process.env.DISCORD_TOKEN!;
 if (!TOKEN) throw new Error('DISCORD_TOKEN missing in .env');
 
+// Dummy health check server for Cloud Run
+const healthServer = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Stiggy is alive and tuning cars 24/7! 🚗💨');
+});
+
+const port = Number(process.env.PORT) || 8080;
+healthServer.listen(port, '0.0.0.0', () => {
+  console.log(`Health check server listening on port ${port}`);
+});
+
 // Extend Client so TypeScript knows about client.commands
 interface ExtendedClient extends Client {
   commands: Collection<string, any>;
@@ -105,20 +116,6 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.reply(reply);
     }
   }
-});
-
-// HTTP Dummy Server to keep the bot alive on hosting services
-// Dummy health check server for Cloud Run
-const healthServer = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Stiggy is alive and ready to tune cars! 🚗💨');
-});
-
-// Convert PORT to number (Cloud Run sets it as string)
-const port = Number(process.env.PORT) || 8080;
-
-healthServer.listen(port, '0.0.0.0', () => {
-  console.log(`Health check server listening on port ${port}`);
 });
 
 // ──────────────────────────────────────────────────────
