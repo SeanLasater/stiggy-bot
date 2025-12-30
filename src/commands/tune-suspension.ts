@@ -1,38 +1,47 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 
-// Helper function for calculations
 function calculateSuspensionTune(
   drivetrain: string,
   weight: number,
   balance: number,
   tire: string,
-  downforce: number
+  frontDownforce: number,
+  rearDownforce: number
 ) {
   const gripFactor = { SH: 0.8, SM: 0.9, SS: 1.0, RH: 1.1, RM: 1.2, RS: 1.3 }[tire] || 1.0;
-  const dfFactor = Math.min(downforce / weight, 0.5);
+  const totalDownforce = frontDownforce + rearDownforce;
+  const dfFactor = Math.min(totalDownforce / weight, 0.5);
+  const frontDfRatio = frontDownforce / Math.max(totalDownforce, 1);
+  const rearDfRatio = rearDownforce / Math.max(totalDownforce, 1);
 
-  // Natural Frequency (Hz) – unchanged, GT7 displays in Hz
+  // Natural Frequency (Hz)
   const baseFreq = 2.2;
-  const frontFreq = baseFreq + (weight / 3000 * 0.6 * gripFactor) + ((balance - 50) / 50 * 0.15) + (dfFactor * 0.4);
-  const rearFreq = baseFreq * 0.58 + (weight / 3000 * 0.5 * gripFactor) + ((50 - balance) / 50 * 0.15) + (dfFactor * 0.3);
+  const frontFreq = baseFreq + 
+    (weight / 3000 * 0.6 * gripFactor) + 
+    ((balance - 50) / 50 * 0.15) + 
+    (frontDfRatio * dfFactor * 0.5);
+  const rearFreq = baseFreq * 0.58 + 
+    (weight / 3000 * 0.5 * gripFactor) + 
+    ((50 - balance) / 50 * 0.15) + 
+    (rearDfRatio * dfFactor * 0.4);
 
-  // Compression & Rebound (0–100 scale) – balanced for stability and lap times
-  const frontComp = Math.round(30 + (frontFreq * 5) + (gripFactor * 5));   // 30–50 range
-  const rearComp = Math.round(28 + (rearFreq * 5) + (gripFactor * 5));     // Slightly softer rear
-  const frontRebound = Math.round(40 + (frontFreq * 6) + (gripFactor * 4)); // 40–60, higher for control
-  const rearRebound = Math.round(38 + (rearFreq * 6) + (gripFactor * 4));
+  // Compression & Rebound (20–50 / 30–60)
+  const frontComp = Math.round(30 + (frontFreq * 5) + (gripFactor * 5) + (frontDfRatio * 5));
+  const rearComp = Math.round(28 + (rearFreq * 5) + (gripFactor * 5) + (rearDfRatio * 5));
+  const frontRebound = Math.round(40 + (frontFreq * 6) + (gripFactor * 4) + (frontDfRatio * 4));
+  const rearRebound = Math.round(38 + (rearFreq * 6) + (gripFactor * 4) + (rearDfRatio * 6));
 
-  // Anti-Roll Bars (1–10 scale) – front-biased for turn-in, rear for rotation
-  const frontARB = Math.round(4 + (frontFreq / 3) + (drivetrain === 'FF' ? 1 : 0) + (dfFactor * 1));
-  const rearARB = Math.round(3 + (rearFreq / 3) + (['FR', 'MR', 'RR'].includes(drivetrain) ? 1 : 0) + (dfFactor * 0.8));
+  // Anti-Roll Bars (1–10)
+  const frontARB = Math.round(4 + (frontFreq / 3) + (drivetrain === 'FF' ? 1 : 0) + (frontDfRatio * 1.5));
+  const rearARB = Math.round(3 + (rearFreq / 3) + (['FR', 'MR', 'RR'].includes(drivetrain) ? 1 : 0) + (rearDfRatio * 1.2));
 
-  // Ride Height (mm) – low but practical
-  const frontHeight = Math.round(95 - (dfFactor * 15) - (gripFactor * 5));
-  const rearHeight = Math.round(frontHeight - (drivetrain === 'FR' || drivetrain === 'MR' || drivetrain === 'RR' ? 3 : 0));
+  // Ride Height (mm)
+  const frontHeight = Math.round(95 - (frontDfRatio * dfFactor * 20) - (gripFactor * 5));
+  const rearHeight = Math.round(frontHeight - (drivetrain === 'FR' || drivetrain === 'MR' || drivetrain === 'RR' ? 3 : 0) + (rearDfRatio * dfFactor * 10));
 
-  // Camber & Toe – unchanged
-  const frontCamber = (2.0 + gripFactor * 0.5 + dfFactor * 0.3).toFixed(1);
-  const rearCamber = (parseFloat(frontCamber) + 0.3).toFixed(1);
+  // Camber & Toe
+  const frontCamber = (2.0 + gripFactor * 0.5 + frontDfRatio * dfFactor * 0.4).toFixed(1);
+  const rearCamber = (parseFloat(frontCamber) + 0.3 + rearDfRatio * dfFactor * 0.2).toFixed(1);
   const frontToe = -0.08;
   const rearToe = 0.10;
 
@@ -41,11 +50,11 @@ function calculateSuspensionTune(
     rearHeight,
     frontSpring: frontFreq.toFixed(2),
     rearSpring: rearFreq.toFixed(2),
-    frontComp: Math.min(50, Math.max(20, frontComp)),    
+    frontComp: Math.min(50, Math.max(20, frontComp)),
     rearComp: Math.min(50, Math.max(20, rearComp)),
-    frontRebound: Math.min(60, Math.max(30, frontRebound)), 
+    frontRebound: Math.min(60, Math.max(30, frontRebound)),
     rearRebound: Math.min(60, Math.max(30, rearRebound)),
-    frontARB: Math.min(10, Math.max(1, frontARB)),      
+    frontARB: Math.min(10, Math.max(1, frontARB)),
     rearARB: Math.min(10, Math.max(1, rearARB)),
     frontCamber,
     rearCamber,
@@ -57,7 +66,7 @@ function calculateSuspensionTune(
 export default {
   data: new SlashCommandBuilder()
     .setName('tune-suspension')
-    .setDescription('Calculate sturdy, nimble suspension tune for GT7 (good grip, high G-force).')
+    .setDescription('Calculate competitive suspension tune for GT7 (stability + lap times).')
     .addStringOption(option =>
       option.setName('drivetrain')
         .setDescription('Drivetrain type')
@@ -93,8 +102,14 @@ export default {
           { name: 'RS (Racing Soft)', value: 'RS' }
         ))
     .addIntegerOption(option =>
-      option.setName('downforce')
-        .setDescription('Total downforce in lbs')
+      option.setName('front-downforce')
+        .setDescription('Front downforce in lbs')
+        .setRequired(true)
+        .setMinValue(0)
+        .setMaxValue(1000))
+    .addIntegerOption(option =>
+      option.setName('rear-downforce')
+        .setDescription('Rear downforce in lbs')
         .setRequired(true)
         .setMinValue(0)
         .setMaxValue(1000)),
@@ -107,16 +122,15 @@ export default {
       const weight = interaction.options.getInteger('weight', true);
       const balance = interaction.options.getInteger('balance', true);
       const tire = interaction.options.getString('tire', true);
-      const downforce = interaction.options.getInteger('downforce', true);
+      const frontDownforce = interaction.options.getInteger('front-downforce', true);
+      const rearDownforce = interaction.options.getInteger('rear-downforce', true);
 
-      const tune = calculateSuspensionTune(drivetrain, weight, balance, tire, downforce);
+      const tune = calculateSuspensionTune(drivetrain, weight, balance, tire, frontDownforce, rearDownforce);
 
       const embed = new EmbedBuilder()
         .setColor('#0099ff')
-        .setTitle(`Suspension Tune for ${drivetrain} (Weight ${weight} lbs, Balance ${balance}/${
-          100 - balance
-        }, ${tire} Tires, ${downforce} lbs DF)`)
-        .setDescription('Sturdy yet nimble setup for max grip and G-forces. Test and adjust in-game.')
+        .setTitle(`Suspension Tune: ${drivetrain} | ${weight} lbs | ${balance}/${100-balance} | ${tire} | DF ${frontDownforce}/${rearDownforce}`)
+        .setDescription('Competitive setup: stability + lap times. Test and adjust on track.')
         .addFields(
           { name: 'Natural Frequency (Hz)', value: `Front: ${tune.frontSpring}\nRear: ${tune.rearSpring}`, inline: true },
           { name: 'Anti-Roll Bars (1–10)', value: `Front: ${tune.frontARB}\nRear: ${tune.rearARB}`, inline: true },
@@ -125,13 +139,13 @@ export default {
           { name: 'Ride Height (mm)', value: `Front: ${tune.frontHeight}\nRear: ${tune.rearHeight}`, inline: true },
           { name: 'Camber (degrees)', value: `Front: -${tune.frontCamber}\nRear: -${tune.rearCamber}`, inline: true },
           { name: 'Toe (degrees)', value: `Front: ${tune.frontToe}\nRear: ${tune.rearToe}`, inline: true }
-)
+        )
         .setFooter({ text: 'Generated by Stiggy | Tune and test on track' });
 
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
-      console.error('Command failed:', error);
-      await interaction.editReply({ content: 'Error calculating suspension tune — try again or check inputs!' });
+      console.error('Suspension command failed:', error);
+      await interaction.editReply({ content: 'Error calculating suspension tune — check inputs!' });
     }
   },
 };
