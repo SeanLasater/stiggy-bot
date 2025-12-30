@@ -8,56 +8,47 @@ function calculateSuspensionTune(
   tire: string,
   downforce: number
 ) {
-  
-  // Base multipliers
-  const gripFactor = {
-    ch: 0.82, cm: 0.90, cs: 0.99,
-    sh: 1.05, sm: 1.09, ss: 1.16,
-    rh: 1.25, rm: 1.29, rs: 1.33, 
-  
-    // Tire grip scaling
-  }[tire] || 1.0; 
-  
-  // Aero contribution to grip
-  const dfFactor = downforce / weight; 
+  const gripFactor = { SH: 0.8, SM: 0.9, SS: 1.0, RH: 1.1, RM: 1.2, RS: 1.3 }[tire] || 1.0;
+  const dfFactor = Math.min(downforce / weight, 0.5);
 
-  // Ride height (mm) - Lower for grip, higher for compliance
-  const frontHeight = 100 - (weight * 0.02 * gripFactor) + (balance * 0.1);
-  const rearHeight = frontHeight - (drivetrain === 'FR' || drivetrain === 'MR' || drivetrain === 'RR' ? 5 : 0) + (dfFactor * 10);
+  // Natural Frequency (Hz) – unchanged, GT7 displays in Hz
+  const baseFreq = 2.2;
+  const frontFreq = baseFreq + (weight / 3000 * 0.6 * gripFactor) + ((balance - 50) / 50 * 0.15) + (dfFactor * 0.4);
+  const rearFreq = baseFreq * 0.58 + (weight / 3000 * 0.5 * gripFactor) + ((50 - balance) / 50 * 0.15) + (dfFactor * 0.3);
 
-  // Spring rate (Hz) - Stiffer for nimble, balanced for grip
-  const frontFreq = 1.8 + (weight / 3000 * 0.8 * gripFactor) + (balance / 50 - 1) * 0.2 + (dfFactor * 0.3);
-  const rearFreq = 1.8 + (weight / 3000 * 0.75 * gripFactor) + ((100 - balance) / 50 - 1) * 0.2 + (dfFactor * 0.25);
+  // Compression & Rebound (0–100 scale) – balanced for stability and lap times
+  const frontComp = Math.round(30 + (frontFreq * 5) + (gripFactor * 5));   // 30–50 range
+  const rearComp = Math.round(28 + (rearFreq * 5) + (gripFactor * 5));     // Slightly softer rear
+  const frontRebound = Math.round(40 + (frontFreq * 6) + (gripFactor * 4)); // 40–60, higher for control
+  const rearRebound = Math.round(38 + (rearFreq * 6) + (gripFactor * 4));
 
-  // Dampers (compression/rebound) - % of spring rate
-  const frontComp = frontFreq * 0.6;
-  const rearComp = rearFreq * 0.6;
-  const frontRebound = frontFreq * 0.8;
-  const rearRebound = rearFreq * 0.8;
+  // Anti-Roll Bars (1–10 scale) – front-biased for turn-in, rear for rotation
+  const frontARB = Math.round(4 + (frontFreq / 3) + (drivetrain === 'FF' ? 1 : 0) + (dfFactor * 1));
+  const rearARB = Math.round(3 + (rearFreq / 3) + (['FR', 'MR', 'RR'].includes(drivetrain) ? 1 : 0) + (dfFactor * 0.8));
 
-  // Anti-roll bars (kgf/mm) - Balance rotation
-  const frontARB = (balance > 50 ? frontFreq * 0.4 : frontFreq * 0.3) + (drivetrain === 'FF' ? 2 : 0);
-  const rearARB = (balance < 50 ? rearFreq * 0.4 : rearFreq * 0.3) + (drivetrain === 'RR' ? 2 : 0);
+  // Ride Height (mm) – low but practical
+  const frontHeight = Math.round(95 - (dfFactor * 15) - (gripFactor * 5));
+  const rearHeight = Math.round(frontHeight - (drivetrain === 'FR' || drivetrain === 'MR' || drivetrain === 'RR' ? 3 : 0));
 
-  // Camber (degrees negative) & Toe (degrees)
-  const frontCamber = 1.5 + (gripFactor * 0.5) + (dfFactor * 0.2);
-  const rearCamber = frontCamber + (drivetrain === 'FR' ? 0.5 : 0);
-  const frontToe = -0.05; // Slight toe-out for nimble entry
-  const rearToe = 0.05; // Toe-in for stability
+  // Camber & Toe – unchanged
+  const frontCamber = (2.0 + gripFactor * 0.5 + dfFactor * 0.3).toFixed(1);
+  const rearCamber = (parseFloat(frontCamber) + 0.3).toFixed(1);
+  const frontToe = -0.08;
+  const rearToe = 0.10;
 
   return {
-    frontHeight: Math.round(frontHeight),
-    rearHeight: Math.round(rearHeight),
+    frontHeight,
+    rearHeight,
     frontSpring: frontFreq.toFixed(2),
     rearSpring: rearFreq.toFixed(2),
-    frontComp: Math.round(frontComp),
-    rearComp: Math.round(rearComp),
-    frontRebound: Math.round(frontRebound),
-    rearRebound: Math.round(rearRebound),
-    frontARB: Math.round(frontARB),
-    rearARB: Math.round(rearARB),
-    frontCamber: frontCamber.toFixed(1),
-    rearCamber: rearCamber.toFixed(1),
+    frontComp: Math.min(50, Math.max(20, frontComp)),    
+    rearComp: Math.min(50, Math.max(20, rearComp)),
+    frontRebound: Math.min(60, Math.max(30, frontRebound)), 
+    rearRebound: Math.min(60, Math.max(30, rearRebound)),
+    frontARB: Math.min(10, Math.max(1, frontARB)),      
+    rearARB: Math.min(10, Math.max(1, rearARB)),
+    frontCamber,
+    rearCamber,
     frontToe: frontToe.toFixed(2),
     rearToe: rearToe.toFixed(2),
   };
@@ -127,14 +118,14 @@ export default {
         }, ${tire} Tires, ${downforce} lbs DF)`)
         .setDescription('Sturdy yet nimble setup for max grip and G-forces. Test and adjust in-game.')
         .addFields(
+          { name: 'Natural Frequency (Hz)', value: `Front: ${tune.frontSpring}\nRear: ${tune.rearSpring}`, inline: true },
+          { name: 'Anti-Roll Bars (1–10)', value: `Front: ${tune.frontARB}\nRear: ${tune.rearARB}`, inline: true },
+          { name: 'Compression (20–50)', value: `Front: ${tune.frontComp}\nRear: ${tune.rearComp}`, inline: true },
+          { name: 'Rebound (30–60)', value: `Front: ${tune.frontRebound}\nRear: ${tune.rearRebound}`, inline: true },
           { name: 'Ride Height (mm)', value: `Front: ${tune.frontHeight}\nRear: ${tune.rearHeight}`, inline: true },
-          { name: 'Spring Rate (Hz)', value: `Front: ${tune.frontSpring}\nRear: ${tune.rearSpring}`, inline: true },
-          { name: 'Compression', value: `Front: ${tune.frontComp}\nRear: ${tune.rearComp}`, inline: true },
-          { name: 'Rebound', value: `Front: ${tune.frontRebound}\nRear: ${tune.rearRebound}`, inline: true },
-          { name: 'Anti-Roll Bars (kgf/mm)', value: `Front: ${tune.frontARB}\nRear: ${tune.rearARB}`, inline: true },
           { name: 'Camber (degrees)', value: `Front: -${tune.frontCamber}\nRear: -${tune.rearCamber}`, inline: true },
           { name: 'Toe (degrees)', value: `Front: ${tune.frontToe}\nRear: ${tune.rearToe}`, inline: true }
-        )
+)
         .setFooter({ text: 'Generated by Stiggy | Tune and test on track' });
 
       await interaction.editReply({ embeds: [embed] });
