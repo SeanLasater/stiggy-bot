@@ -308,7 +308,7 @@ const transmissionTunes: Record<string, TransmissionTune> = {
             '6th': 1.000,
         }
     },
-    'nürburgring': {
+    'nurburgring': {
         finalDrive: 3.200,
         gears: {
             '1st': 3.900,
