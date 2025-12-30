@@ -8,27 +8,36 @@ function calculateSuspensionTune(
   tire: string,
   downforce: number
 ) {
+  
   // Base multipliers
-  const gripFactor = { SH: 0.8, SM: 0.9, SS: 1.0, RH: 1.1, RM: 1.2, RS: 1.3 }[tire] || 1.0; // Tire grip scaling
-  const dfFactor = downforce / weight; // Aero contribution to grip
+  const gripFactor = {
+    ch: 0.82, cm: 0.90, cs: 0.99,
+    sh: 1.05, sm: 1.09, ss: 1.16,
+    rh: 1.25, rm: 1.29, rs: 1.33, 
+  
+    // Tire grip scaling
+  }[tire] || 1.0; 
+  
+  // Aero contribution to grip
+  const dfFactor = downforce / weight; 
 
   // Ride height (mm) - Lower for grip, higher for compliance
   const frontHeight = 100 - (weight * 0.02 * gripFactor) + (balance * 0.1);
   const rearHeight = frontHeight - (drivetrain === 'FR' || drivetrain === 'MR' || drivetrain === 'RR' ? 5 : 0) + (dfFactor * 10);
 
-  // Spring rate (kgf/mm) - Stiffer for nimble, balanced for grip
-  const frontSpring = (weight * balance / 100 * 0.15 * gripFactor) + (dfFactor * 2);
-  const rearSpring = (weight * (100 - balance) / 100 * 0.14 * gripFactor) + (dfFactor * 1.5);
+  // Spring rate (Hz) - Stiffer for nimble, balanced for grip
+  const frontFreq = 1.8 + (weight / 3000 * 0.8 * gripFactor) + (balance / 50 - 1) * 0.2 + (dfFactor * 0.3);
+  const rearFreq = 1.8 + (weight / 3000 * 0.75 * gripFactor) + ((100 - balance) / 50 - 1) * 0.2 + (dfFactor * 0.25);
 
   // Dampers (compression/rebound) - % of spring rate
-  const frontComp = frontSpring * 0.6;
-  const rearComp = rearSpring * 0.6;
-  const frontRebound = frontSpring * 0.8;
-  const rearRebound = rearSpring * 0.8;
+  const frontComp = frontFreq * 0.6;
+  const rearComp = rearFreq * 0.6;
+  const frontRebound = frontFreq * 0.8;
+  const rearRebound = rearFreq * 0.8;
 
   // Anti-roll bars (kgf/mm) - Balance rotation
-  const frontARB = (balance > 50 ? frontSpring * 0.4 : frontSpring * 0.3) + (drivetrain === 'FF' ? 2 : 0);
-  const rearARB = (balance < 50 ? rearSpring * 0.4 : rearSpring * 0.3) + (drivetrain === 'RR' ? 2 : 0);
+  const frontARB = (balance > 50 ? frontFreq * 0.4 : frontFreq * 0.3) + (drivetrain === 'FF' ? 2 : 0);
+  const rearARB = (balance < 50 ? rearFreq * 0.4 : rearFreq * 0.3) + (drivetrain === 'RR' ? 2 : 0);
 
   // Camber (degrees negative) & Toe (degrees)
   const frontCamber = 1.5 + (gripFactor * 0.5) + (dfFactor * 0.2);
@@ -39,8 +48,8 @@ function calculateSuspensionTune(
   return {
     frontHeight: Math.round(frontHeight),
     rearHeight: Math.round(rearHeight),
-    frontSpring: frontSpring.toFixed(2),
-    rearSpring: rearSpring.toFixed(2),
+    frontSpring: frontFreq.toFixed(2),
+    rearSpring: rearFreq.toFixed(2),
     frontComp: Math.round(frontComp),
     rearComp: Math.round(rearComp),
     frontRebound: Math.round(frontRebound),
@@ -119,7 +128,7 @@ export default {
         .setDescription('Sturdy yet nimble setup for max grip and G-forces. Test and adjust in-game.')
         .addFields(
           { name: 'Ride Height (mm)', value: `Front: ${tune.frontHeight}\nRear: ${tune.rearHeight}`, inline: true },
-          { name: 'Spring Rate (kgf/mm)', value: `Front: ${tune.frontSpring}\nRear: ${tune.rearSpring}`, inline: true },
+          { name: 'Spring Rate (Hz)', value: `Front: ${tune.frontSpring}\nRear: ${tune.rearSpring}`, inline: true },
           { name: 'Compression', value: `Front: ${tune.frontComp}\nRear: ${tune.rearComp}`, inline: true },
           { name: 'Rebound', value: `Front: ${tune.frontRebound}\nRear: ${tune.rearRebound}`, inline: true },
           { name: 'Anti-Roll Bars (kgf/mm)', value: `Front: ${tune.frontARB}\nRear: ${tune.rearARB}`, inline: true },
