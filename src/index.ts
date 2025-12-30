@@ -47,12 +47,15 @@ client.commands = new Collection();
 // ──────────────────────────────────────────────────────
 // Load commands into memory (for execution)
 async function loadCommands() {
+  const isDev = process.env.NODE_ENV !== 'production';
+  const ext = isDev ? '.ts' : '.js';
   const commandsPath = join(__dirname, 'commands');
-  const files = readdirSync(commandsPath).filter(f => f.endsWith('.ts') && !f.startsWith('_'));
+  const files = readdirSync(commandsPath).filter(f => f.endsWith(ext) && !f.startsWith('_'));
 
   for (const file of files) {
     const filePath = join(commandsPath, file);
-    delete require.cache[require.resolve(filePath)]; // hot-reload
+    // Clear cache for hot-reload in dev
+    if (isDev) delete require.cache[require.resolve(filePath)];
 
     const command = (await import(filePath)).default;
     if (command?.data?.name) {
@@ -62,18 +65,27 @@ async function loadCommands() {
   }
 }
 
-// ─────────────────────────────────────────────────────── Register slash commands in every guild (instant for dev)
+// ───────────────────────────────────────────────────────
+// Register slash commands in every guild the bot is in (fast for dev/testing)
 async function registerCommands() {
+  const isDev = process.env.NODE_ENV !== 'production';
+  const ext = isDev ? '.ts' : '.js';
+
   const commands = [];
   const commandsPath = join(__dirname, 'commands');
-  const files = readdirSync(commandsPath).filter(f => f.endsWith('.ts'));
+  const files = readdirSync(commandsPath).filter(f => f.endsWith(ext));
 
   for (const file of files) {
     const command = (await import(join(commandsPath, file))).default;
     if (command?.data) commands.push(command.data.toJSON());
   }
 
-  const rest = new REST({ version: '10' }).setToken(TOKEN); // ← version 10 fixes the undefined warning
+  if (commands.length === 0) {
+    console.log('No commands found to register');
+    return;
+  }
+
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
 
   console.log(`Registering ${commands.length} command(s) to all guilds...`);
 
