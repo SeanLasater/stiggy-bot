@@ -7,9 +7,10 @@
     "node": "18"
   },
  "scripts": {
-  "dev": "nodemon src/index.ts",
   "build": "tsc",
   "start": "node dist/index.js",
+  "dev": "ts-node src/index.ts --dev",
+  "dev:prod": "ts-node src/index.ts",
   "deploy:commands": "ts-node src/deploy/deploy-commands.ts",
   "test:firebase": "ts-node src/database/test-firebase.ts",
   "serve": "npm run build && npm run start",

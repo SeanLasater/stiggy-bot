@@ -1,4 +1,5 @@
 // src/index.ts
+
 import {
   Client,
   GatewayIntentBits,
@@ -11,23 +12,42 @@ import { readdirSync } from 'fs';
 import { join } from 'path';
 import 'dotenv/config';
 import './database/firebase'; // ← initializes Firebase on startup
-import http, { Server } from 'http';
+import http from 'http';
 
-const TOKEN = process.env.DISCORD_TOKEN!;
-if (!TOKEN) throw new Error('DISCORD_TOKEN missing in .env');
+// ──────────────────────────────────────────────────────
+// Determine mode and token
+const isDevMode = process.argv.includes('--dev');
+const TOKEN = isDevMode ? process.env.DISCORD_TOKEN_DEV : process.env.DISCORD_TOKEN;
 
+if (!TOKEN) {
+  console.error(
+    isDevMode
+      ? 'Error: DISCORD_TOKEN_DEV is missing in .env (required for dev mode)'
+      : 'Error: DISCORD_TOKEN is missing in .env (required for production)'
+  );
+  process.exit(1);
+}
+
+console.log(
+  `🚀 Starting in ${isDevMode ? 'DEV' : 'PRODUCTION'} mode${
+    isDevMode ? ' (using DISCORD_TOKEN_DEV)' : ''
+  }`
+);
+
+// ──────────────────────────────────────────────────────
 // Dummy health check server for Cloud Run
 const healthServer = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Stiggy is alive and tuning cars 24/7! 🚗💨');
 });
 
-const port = Number(process.env.PORT) || 8080;
+const port = Number(process.env.PORT || '8080');
 healthServer.listen(port, '0.0.0.0', () => {
   console.log(`Health check server listening on port ${port}`);
 });
 
-// Extend Client so TypeScript knows about client.commands
+// ──────────────────────────────────────────────────────
+// Extend Client for commands
 interface ExtendedClient extends Client {
   commands: Collection<string, any>;
 }
@@ -47,15 +67,17 @@ client.commands = new Collection();
 // ──────────────────────────────────────────────────────
 // Load commands into memory (for execution)
 async function loadCommands() {
-  const isDev = process.env.NODE_ENV !== 'production';
-  const ext = isDev ? '.ts' : '.js';
+  const isProdBuild = process.env.NODE_ENV === 'production';
+  const ext = isProdBuild ? '.js' : '.ts';
   const commandsPath = join(__dirname, 'commands');
-  const files = readdirSync(commandsPath).filter(f => f.endsWith(ext) && !f.startsWith('_'));
+  const files = readdirSync(commandsPath).filter(
+    (f) => f.endsWith(ext) && !f.startsWith('_')
+  );
 
   for (const file of files) {
     const filePath = join(commandsPath, file);
-    // Clear cache for hot-reload in dev
-    if (isDev) delete require.cache[require.resolve(filePath)];
+    // Clear cache for hot-reload in local dev
+    if (!isProdBuild) delete require.cache[require.resolve(filePath)];
 
     const command = (await import(filePath)).default;
     if (command?.data?.name) {
@@ -65,15 +87,15 @@ async function loadCommands() {
   }
 }
 
-// ───────────────────────────────────────────────────────
-// Register slash commands in every guild the bot is in (fast for dev/testing)
+// ──────────────────────────────────────────────────────
+// Register slash commands in every guild the bot is in
 async function registerCommands() {
-  const isDev = process.env.NODE_ENV !== 'production';
-  const ext = isDev ? '.ts' : '.js';
+  const isProdBuild = process.env.NODE_ENV === 'production';
+  const ext = isProdBuild ? '.js' : '.ts';
 
   const commands = [];
   const commandsPath = join(__dirname, 'commands');
-  const files = readdirSync(commandsPath).filter(f => f.endsWith(ext));
+  const files = readdirSync(commandsPath).filter((f) => f.endsWith(ext));
 
   for (const file of files) {
     const command = (await import(join(commandsPath, file))).default;
@@ -96,36 +118,42 @@ async function registerCommands() {
       });
       console.log(`Registered commands → ${guild.name}`);
     } catch (err) {
-      console.error(`Failed in ${guild.name}:`, err);
+      console.error(`Failed to register in ${guild.name}:`, err);
     }
   }
 }
 
 // ──────────────────────────────────────────────────────
 // Events
-client.once('clientReady', (c) => {
+client.once('ready', (c) => {
   if (!c.user) return;
   console.log(`Logged in as ${c.user.tag}`);
   console.log(`Serving ${c.guilds.cache.size} guild(s)`);
   console.log('Stiggy is online and ready to tune cars');
   c.user.setActivity('GT7 | /help', { type: 0 });
+
+  // Register commands after ready (guild-specific = fast feedback)
+  registerCommands();
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
-  if (!command) return;
+  if (!command) {
+    console.error(`Command ${interaction.commandName} not found`);
+    return;
+  }
 
   try {
     await command.execute(interaction);
   } catch (error) {
-    console.error(error);
+    console.error('Command execution error:', error);
     const reply = { content: 'There was an error executing that command!', ephemeral: true };
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reply);
+      await interaction.followUp(reply).catch(() => {});
     } else {
-      await interaction.reply(reply);
+      await interaction.reply(reply).catch(() => {});
     }
   }
 });
@@ -135,7 +163,4 @@ client.on('interactionCreate', async (interaction) => {
 (async () => {
   await loadCommands();
   await client.login(TOKEN);
-
-  // Register commands once the bot is fully ready
-  client.once('clientReady', registerCommands);
 })();
