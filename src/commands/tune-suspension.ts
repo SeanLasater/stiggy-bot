@@ -1,3 +1,4 @@
+// src/commands/tune-suspension.ts
 import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 
 function calculateSuspensionTune(

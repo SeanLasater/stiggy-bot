@@ -1,9 +1,5 @@
 // src/commands/tune-downforce.ts
-import {
-  SlashCommandBuilder,
-  ChatInputCommandInteraction,
-  EmbedBuilder,
-} from 'discord.js';
+import { SlashCommandBuilder, ChatInputCommandInteraction, EmbedBuilder } from 'discord.js';
 
 // ──────────────────────────────────────────────────────────────
 // Data
