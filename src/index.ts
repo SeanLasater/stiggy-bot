@@ -108,11 +108,14 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // HTTP Dummy Server to keep the bot alive on hosting services
-http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('Stiggy is alive and tuning cars! 🚗');
-}).listen(process.env.PORT || 8080, () => {
-  console.log('Health check server running');
+const healthServer = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Stiggy is alive and ready to tune cars! 🚗💨');
+});
+
+const port = process.env.PORT || 8080;
+healthServer.listen(port, '0.0.0.0', () => {
+  console.log(`Health check server listening on port ${port}`);
 });
 
 // ──────────────────────────────────────────────────────
