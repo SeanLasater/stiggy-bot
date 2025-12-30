@@ -8,7 +8,10 @@ function calculateSuspensionTune(
   frontDownforce: number,
   rearDownforce: number
 ) {
-  const gripFactor = { SH: 0.8, SM: 0.9, SS: 1.0, RH: 1.1, RM: 1.2, RS: 1.3 }[tire] || 1.0;
+  const gripFactor = { 
+    CH: 0.82, CM: 0.90, CS: 0.99,
+    SH: 1.05, SM: 1.09, SS: 1.16,
+    RH: 1.25, RM: 1.29, RS: 1.33 }[tire] || 1.0;
   const totalDownforce = frontDownforce + rearDownforce;
   const dfFactor = Math.min(totalDownforce / weight, 0.5);
   const frontDfRatio = frontDownforce / Math.max(totalDownforce, 1);
@@ -94,6 +97,9 @@ export default {
         .setDescription('Tire compound')
         .setRequired(true)
         .addChoices(
+          { name: 'CH (Comfort Hard)', value: 'CH' },
+          { name: 'CS (Comfort Hard)', value: 'CM' },
+          { name: 'CH (Comfort Hard)', value: 'CS' },
           { name: 'SH (Sports Hard)', value: 'SH' },
           { name: 'SM (Sports Medium)', value: 'SM' },
           { name: 'SS (Sports Soft)', value: 'SS' },
