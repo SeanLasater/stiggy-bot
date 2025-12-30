@@ -11,6 +11,7 @@ import { readdirSync } from 'fs';
 import { join } from 'path';
 import 'dotenv/config';
 import './database/firebase'; // ← initializes Firebase on startup
+import http, { Server } from 'http';
 
 const TOKEN = process.env.DISCORD_TOKEN!;
 if (!TOKEN) throw new Error('DISCORD_TOKEN missing in .env');
@@ -104,6 +105,14 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.reply(reply);
     }
   }
+});
+
+// HTTP Dummy Server to keep the bot alive on hosting services
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Stiggy is alive and tuning cars! 🚗');
+}).listen(process.env.PORT || 8080, () => {
+  console.log('Health check server running');
 });
 
 // ──────────────────────────────────────────────────────
