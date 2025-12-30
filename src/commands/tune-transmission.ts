@@ -476,7 +476,7 @@ export const data = new SlashCommandBuilder()
 
   // Build the pretty response
   const embed = new EmbedBuilder()
-    .setColor(Colors.Blurple)
+    .setColor(Colors.Blue)
     .setTitle(`Transmission Tune: ${capitalizeTrack(track)}`)
     .setDescription('Optimal ratios for acceleration and top speed balance.')
     .addFields(
@@ -496,33 +496,52 @@ export const data = new SlashCommandBuilder()
 
 // Autocomplete handler for track names
 export async function autocomplete(interaction: AutocompleteInteraction) {
-  const focused = interaction.options.getFocused(true); // Get what they're typing
+  try {
+    const focused = interaction.options.getFocused(true);
 
-  // Only handle the 'track' option
-  if (focused.name !== 'track') return;
+    // Only handle the 'track' option
+    if (focused.name !== 'track') {
+      await interaction.respond([]);
+      return;
+    }
 
-  const input = focused.value.toLowerCase().trim();
+    const input = (focused.value || '').toString().toLowerCase().trim();
 
-  // Get all track names and filter by what they've typed
-  const allTracks = Object.keys(transmissionTunes);
-  const filtered = allTracks.filter(track => track.includes(input));
+    // Get all track names
+    const allTracks = Object.keys(transmissionTunes);
 
-  // Sort by how well it matches (starts with > contains)
-  filtered.sort((a, b) => {
-    const aStarts = a.startsWith(input);
-    const bStarts = b.startsWith(input);
-    if (aStarts && !bStarts) return -1;
-    if (!aStarts && bStarts) return 1;
-    return a.length - b.length; // shorter first
-  });
+    // Filter and sort
+    let filtered = allTracks;
+    if (input) {
+      filtered = allTracks.filter(track => track.includes(input));
+    } else {
+      // If no input, show first 25 alphabetically
+      filtered = allTracks.sort();
+    }
 
-  // Limit to 25 (Discord max)
-  const choices = filtered.slice(0, 25).map(track => ({
-    name: capitalizeTrack(track),
-    value: track,
-  }));
+    // Sort: exact matches first
+    filtered.sort((a, b) => {
+      const aMatch = a.startsWith(input);
+      const bMatch = b.startsWith(input);
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+      return a.localeCompare(b); // Alphabetical fallback
+    });
 
-  await interaction.respond(choices);
+    // Take top 25
+    const choices = filtered.slice(0, 25).map(track => ({
+      name: capitalizeTrack(track),
+      value: track,
+    }));
+
+    console.log(`Autocomplete: "${input}" → ${choices.length} options`); // Debug log
+
+    await interaction.respond(choices);
+  } catch (error) {
+    console.error('Autocomplete error:', error);
+    // If it fails, respond with empty to avoid Discord errors
+    await interaction.respond([]);
+  }
 }
 
 // Helper to capitalize track names nicely
