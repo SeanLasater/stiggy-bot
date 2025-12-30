@@ -528,8 +528,8 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
       return a.localeCompare(b); // Alphabetical fallback
     });
 
-    // Take top 25
-    const choices = filtered.slice(0, 25).map(track => ({
+    // Take top 6
+    const choices = filtered.slice(0, 6).map(track => ({
       name: capitalizeTrack(track),
       value: track,
     }));
@@ -553,4 +553,4 @@ function capitalizeTrack(track: string): string {
 }
 
 // Export default for command registration
-export default { data, execute, autocomplete, };
+export default { data, execute, autocomplete };
