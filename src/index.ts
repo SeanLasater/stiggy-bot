@@ -125,7 +125,7 @@ async function registerCommands() {
 
 // ──────────────────────────────────────────────────────
 // Events
-client.once('ready', (c) => {
+client.once('clientReady', (c) => {
   if (!c.user) return;
   console.log(`Logged in as ${c.user.tag}`);
   console.log(`Serving ${c.guilds.cache.size} guild(s)`);
