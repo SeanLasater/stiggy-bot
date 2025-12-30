@@ -108,12 +108,15 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // HTTP Dummy Server to keep the bot alive on hosting services
+// Dummy health check server for Cloud Run
 const healthServer = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Stiggy is alive and ready to tune cars! 🚗💨');
 });
 
-const port = process.env.PORT || 8080;
+// Convert PORT to number (Cloud Run sets it as string)
+const port = Number(process.env.PORT) || 8080;
+
 healthServer.listen(port, '0.0.0.0', () => {
   console.log(`Health check server listening on port ${port}`);
 });
